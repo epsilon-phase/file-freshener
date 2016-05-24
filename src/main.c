@@ -8,6 +8,7 @@
 #include "freshen.h"
 #include <limits.h>
 #include <errno.h>
+#include <utime.h>
 #include "cp.h"
 #define CREATE_TABLE "CREATE TABLE IF NOT EXISTS FILES("\
   "DESTINATION TEXT NOT NULL UNIQUE,"\
@@ -81,6 +82,11 @@ int main(int argc,char* argv[]){
       listNode* r=root;
       struct stat srcbuf,dstbuf;
       short destination_exists=1,skip_danger=0,can_replace=1;
+      struct utimbuf replacement_time;
+      if(argc>i+1&&strcmp(argv[i+1],"-safe")){
+        skip_danger=1;
+        i++;
+      }
       while(r){
         rc=stat(r->destination,&dstbuf);
         if(rc==-1){
@@ -111,6 +117,9 @@ int main(int argc,char* argv[]){
           printf(srcbuf.st_mtime>dstbuf.st_mtime?
                  "Replacing %s with %s\n":"%s up to date with %s\n",r->destination,r->source);
           cp(r->destination,r->source);
+          replacement_time.modtime=srcbuf.st_mtim.tv_sec;
+          replacement_time.actime=srcbuf.st_atim.tv_sec;
+          utime(r->destination,&replacement_time);//replace with the source file's time
         }
         r=r->next;
       }
