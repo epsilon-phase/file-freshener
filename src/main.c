@@ -52,11 +52,13 @@ int main(int argc,char* argv[]){
         srcpath[PATH_MAX+1];
       realpath(dest,destpath);
       realpath(src,srcpath);
+      i+=2;
       short dangerous=0;
       if(argc>=i+4){
         if(strcmp(argv[i+3],"-dangerous")==0)
           {
             dangerous=1;
+            i++;
           }
       }
       if(sqlite3_bind_text(prepared_insert,1,destpath,-1,SQLITE_STATIC)!=SQLITE_OK)
@@ -70,6 +72,7 @@ int main(int argc,char* argv[]){
       if(rc!=SQLITE_DONE){
         fprintf(stderr,"Didn't run right: %s\n",sqlite3_errstr(rc));
       }
+      sqlite3_reset(prepared_insert);
     }else if(strcmp(argv[i],"freshen")==0){
       sqlite3_exec(db,"select * from FILES;",freshen,(void*)root,&zErrMsg);
     }
