@@ -53,7 +53,7 @@ int main(int argc,char* argv[]){
   }
   rc=sqlite3_prepare_v2(db,"update FILES set SOURCE = ? where DESTINATION = ?",-1,&prepared_replace,NULL);
   if(rc!=SQLITE_OK){
-    printf("Failed in something");
+    //Needs to be written
   }
   for(i=1;i<argc;i++){
     if(strcmp(argv[i],"-insert")==0){
