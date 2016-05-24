@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include "freshen.h"
 #include <limits.h>
+#include <errno.h>
+#include "cp.h"
 #define CREATE_TABLE "CREATE TABLE IF NOT EXISTS FILES("\
   "DESTINATION TEXT NOT NULL UNIQUE,"\
   "SOURCE TEXT NOT NULL,"\
@@ -21,7 +23,7 @@ int main(int argc,char* argv[]){
   char *sql;
   int i;
   sqlite3_stmt *prepared_insert;
-  struct listNode* root=calloc(1,sizeof(listNode));
+  listNode* root=calloc(1,sizeof(listNode));
   strcat(file,getenv("HOME"));
   strncat(file,"/freshen.db",13);
   int rc;
@@ -72,9 +74,46 @@ int main(int argc,char* argv[]){
       if(rc!=SQLITE_DONE){
         fprintf(stderr,"Didn't run right: %s\n",sqlite3_errstr(rc));
       }
-      sqlite3_reset(prepared_insert);
-    }else if(strcmp(argv[i],"freshen")==0){
+      sqlite3_reset(prepared_insert);//Reset prepared statement
+
+    }else if(strcmp(argv[i],"-freshen")==0){
       sqlite3_exec(db,"select * from FILES;",freshen,(void*)root,&zErrMsg);
+      listNode* r=root;
+      struct stat srcbuf,dstbuf;
+      short destination_exists=1,skip_danger=0,can_replace=1;
+      while(r){
+        rc=stat(r->destination,&dstbuf);
+        if(rc==-1){
+          if(errno!=ENOENT){
+            fprintf(stderr,"It seems that the destination is inaccessible for some reason\n");
+            exit(1);
+          }else
+            destination_exists=0;
+        }else
+          destination_exists=1;
+        rc=stat(r->source,&srcbuf);
+        if(rc==-1){
+            fprintf(stderr,"It seems that the source file is inaccessible for some reason\n");
+            exit(1);
+        }
+        if(r->dangerous)
+          {
+            if(skip_danger)
+              {
+                r=r->next;
+                continue;
+              }
+            printf("%s is marked as being dangerous, is %s ready to be used?\n",r->destination,r->source);
+            scanf("%c",&can_replace);
+          }else
+          can_replace=1;
+        if(can_replace!=0&&can_replace!='n'){
+          printf(srcbuf.st_mtime>dstbuf.st_mtime?
+                 "Replacing %s with %s\n":"%s up to date with %s\n",r->destination,r->source);
+          cp(r->destination,r->source);
+        }
+        r=r->next;
+      }
     }
   }
   sqlite3_close(db);
@@ -100,14 +139,15 @@ time_t get_mtime(const char *path){
 
 static int freshen(void *List,int argc, char **argv, char **azColName){
   listNode *l=List;
-  if(l->source||l->destination){
-    l->next=malloc(sizeof(listNode));
+  while(l->source||l->destination){
+    if(!l->next)
+    l->next=calloc(1,sizeof(listNode));
     l=l->next;
   }
-  l->destination=calloc(strlen(argv[1]),sizeof(char));
-  strcpy(l->destination,argv[1]);
-  l->source=calloc(strlen(argv[2]),sizeof(char));
-  strcpy(l->source,argv[2]);
-  l->dangerous=atoi(argv[3])>0;
+  l->destination=calloc(strlen(argv[0]),sizeof(char));
+  strcpy(l->destination,argv[0]);
+  l->source=calloc(strlen(argv[1]),sizeof(char));
+  strcpy(l->source,argv[1]);
+  l->dangerous=atoi(argv[2])>0;
   return 0;
 }
