@@ -23,7 +23,7 @@ int main(int argc,char* argv[]){
   char file[100];
   char *sql;
   int i;
-  sqlite3_stmt *prepared_insert;
+  sqlite3_stmt *prepared_insert,*prepared_delete,*prepared_replace;
   listNode* root=calloc(1,sizeof(listNode));
   strcat(file,getenv("HOME"));
   strncat(file,"/freshen.db",13);
@@ -47,6 +47,14 @@ int main(int argc,char* argv[]){
   if(rc!=SQLITE_OK){
     //write this sometime
   }
+  rc=sqlite3_prepare_v2(db,"delete from FILES where DESTINATION = ?",-1,&prepared_delete,NULL);
+  if(rc!=SQLITE_OK){
+    //do something here sometime.
+  }
+  rc=sqlite3_prepare_v2(db,"update FILES set SOURCE = ? where DESTINATION = ?",-1,&prepared_replace,NULL);
+  if(rc!=SQLITE_OK){
+    printf("Failed in something");
+  }
   for(i=1;i<argc;i++){
     if(strcmp(argv[i],"-insert")==0){
       char *dest=argv[i+1];
@@ -57,8 +65,8 @@ int main(int argc,char* argv[]){
       realpath(src,srcpath);
       i+=2;
       short dangerous=0;
-      if(argc>=i+4){
-        if(strcmp(argv[i+3],"-dangerous")==0)
+      if(argc>=i+2){
+        if(strcmp(argv[i+1],"-dangerous")==0)
           {
             dangerous=1;
             i++;
@@ -83,7 +91,7 @@ int main(int argc,char* argv[]){
       struct stat srcbuf,dstbuf;
       short destination_exists=1,skip_danger=0,can_replace=1;
       struct utimbuf replacement_time;
-      if(argc>i+1&&strcmp(argv[i+1],"-safe")){
+      if(argc>i+1&&strcmp(argv[i+1],"-safe-only")){
         skip_danger=1;
         i++;
       }
@@ -123,6 +131,21 @@ int main(int argc,char* argv[]){
         }
         r=r->next;
       }
+    }else if (strcmp(argv[i],"-remove")==0){//Remove destination file from database, doesn't really matter if it succeeds.
+      char rpath[PATH_MAX+1];
+      realpath(argv[i+1],rpath);
+      i++;
+      sqlite3_bind_text(prepared_delete,1,rpath,-1,SQLITE_STATIC);
+      sqlite3_step(prepared_delete);
+      sqlite3_reset(prepared_delete);
+    }else if(strcmp(argv[i],"-replace")==0){
+      char srcpath[PATH_MAX+1],dstpath[PATH_MAX+1];
+      realpath(argv[i+1],dstpath);
+      realpath(argv[i+2],srcpath);
+      sqlite3_bind_text(prepared_replace,1,srcpath,-1,SQLITE_STATIC);
+      sqlite3_bind_text(prepared_replace,2,dstpath,-1,SQLITE_STATIC);
+      sqlite3_step(prepared_replace);
+      sqlite3_reset(prepared_replace);
     }
   }
   sqlite3_close(db);
