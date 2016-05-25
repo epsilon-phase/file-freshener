@@ -6,4 +6,6 @@ typedef struct{
   short dangerous;
   void *next;
 }listNode;
+int isArgFile(const char*);
+void freeList(listNode *root);
 #endif

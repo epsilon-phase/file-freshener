@@ -67,6 +67,14 @@ int main(int argc,char* argv[]){
       char *src=argv[i+2];
       char destpath[PATH_MAX+1],
         srcpath[PATH_MAX+1];
+      if(!isArgFile(dest)){
+        fprintf(stderr,"-insert requires two arguments <destination file> <source file> [-dangerous]?\n%s is not visible to this as a file\n",dest);
+        exit(1);
+      }
+      if(!isArgFile(src)){
+        fprintf(stderr,"-insert requires two arguments <destination file> <source file> [-dangerous]?\n%s is not visible to this as a file\n",src);
+        exit(1);
+      }
       realpath(dest,destpath);
       realpath(src,srcpath);
       i+=2;
@@ -138,6 +146,8 @@ int main(int argc,char* argv[]){
         }
         r=r->next;
       }
+      freeList(root);
+      root=calloc(1,sizeof(listNode));
     }else if (strcmp(argv[i],"-remove")==0){//Remove destination file from database, doesn't really matter if it succeeds.
       char rpath[PATH_MAX+1];
       realpath(argv[i+1],rpath);
