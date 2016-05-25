@@ -75,6 +75,11 @@ int main(int argc,char* argv[]){
         fprintf(stderr,"-insert requires two arguments <destination file> <source file> [-dangerous]?\n%s is not visible to this as a file\n",src);
         exit(1);
       }
+      if(!fileExists(src))
+        {
+          fprintf(stderr,"%s does not exist, source files must exist\n",src);
+          exit(1);
+        }
       realpath(dest,destpath);
       realpath(src,srcpath);
       i+=2;

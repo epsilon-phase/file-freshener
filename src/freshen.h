@@ -8,4 +8,5 @@ typedef struct{
 }listNode;
 int isArgFile(const char*);
 void freeList(listNode *root);
+int fileExists(const char*);
 #endif
