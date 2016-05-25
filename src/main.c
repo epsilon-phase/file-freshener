@@ -23,7 +23,7 @@ int main(int argc,char* argv[]){
   char file[100];
   char *sql;
   int i;
-  sqlite3_stmt *prepared_insert,*prepared_delete,*prepared_replace;
+  sqlite3_stmt *prepared_insert,*prepared_delete,*prepared_replace,*prepared_source_redirect;
   listNode* root=calloc(1,sizeof(listNode));
   strcat(file,getenv("HOME"));
   strncat(file,"/freshen.db",13);
@@ -54,6 +54,12 @@ int main(int argc,char* argv[]){
   rc=sqlite3_prepare_v2(db,"update FILES set SOURCE = ? where DESTINATION = ?",-1,&prepared_replace,NULL);
   if(rc!=SQLITE_OK){
     //Needs to be written
+  }
+  rc=sqlite3_prepare_v2(db,"UPDATE FILES SET SOURCE = ? WHERE SOURCE = ?",-1,&prepared_source_redirect,NULL);
+  if(rc!=SQLITE_OK){
+    //This sort of thing might not need to actually be written, after all, they
+    //should compile to the same thing each time.
+    fprintf(stderr,"Something broke!\n");
   }
   for(i=1;i<argc;i++){
     if(strcmp(argv[i],"-insert")==0){
@@ -89,7 +95,8 @@ int main(int argc,char* argv[]){
       sqlite3_exec(db,"select * from FILES;",freshen,(void*)root,&zErrMsg);
       listNode* r=root;
       struct stat srcbuf,dstbuf;
-      short destination_exists=1,skip_danger=0,can_replace=1;
+      short destination_exists=1,skip_danger=0;
+      char can_replace=1;
       struct utimbuf replacement_time;
       if(argc>i+1&&strcmp(argv[i+1],"-safe-only")){
         skip_danger=1;
@@ -121,7 +128,7 @@ int main(int argc,char* argv[]){
             scanf("%c",&can_replace);
           }else
           can_replace=1;
-        if(can_replace!=0&&can_replace!='n'){
+        if((can_replace!=0&&can_replace!='n')||!destination_exists){
           printf(srcbuf.st_mtime>dstbuf.st_mtime?
                  "Replacing %s with %s\n":"%s up to date with %s\n",r->destination,r->source);
           cp(r->destination,r->source);
@@ -146,6 +153,23 @@ int main(int argc,char* argv[]){
       sqlite3_bind_text(prepared_replace,2,dstpath,-1,SQLITE_STATIC);
       sqlite3_step(prepared_replace);
       sqlite3_reset(prepared_replace);
+    }else if(strcmp(argv[i],"-redirect")==0){
+      char srcpath[PATH_MAX+1],newpath[PATH_MAX+1];
+      if(argc<=i+2){
+        fprintf(stderr,"The proper invocation of -redirect requires two arguments <original source> <new source>\n");
+        exit(1);
+      }
+      realpath(argv[i+1],srcpath);//Get the full path of the file.
+      realpath(argv[i+2],newpath);
+      printf("%s\n",srcpath);
+      sqlite3_bind_text(prepared_source_redirect,1,newpath,-1,SQLITE_STATIC);
+      sqlite3_bind_text(prepared_source_redirect,2,srcpath,-1,SQLITE_STATIC);
+      rc=sqlite3_step(prepared_source_redirect);
+      if(rc!=SQLITE_DONE){
+        fprintf(stderr,"%s\n",sqlite3_errmsg(db));
+      }
+      sqlite3_reset(prepared_source_redirect);
+      i+=2;
     }
   }
   sqlite3_close(db);

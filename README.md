@@ -21,4 +21,4 @@ To actually update the files from their various sources run it with `-freshen
 
 If you should need to change a destination file's source path, then that may be done with `-replace <destination> <new-source>`.
 
-
+Due to the "lovely" way that this stores its information, invoking it with admin privelages may not work at all, or may end up creating a nice user directory for root with a "freshen.db" in it.
